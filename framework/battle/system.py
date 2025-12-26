@@ -13,6 +13,7 @@ from engine.core import World, Entity
 from engine.core.events import EventBus, EngineEvent
 from engine.core.actions import Action
 from framework.components import (
+    StatusType,
     CharacterStats,
     Health,
     Mana,
@@ -294,7 +295,7 @@ class BattleSystem:
         self._can_flee = can_flee
 
         # Emit event
-        self.events.emit(EngineEvent.SCENE_TRANSITION, {
+        self.events.publish(EngineEvent.SCENE_TRANSITION, {
             'type': 'battle_start',
             'party_count': len(self._party),
             'enemy_count': len(self._enemies),
@@ -376,7 +377,7 @@ class BattleSystem:
         """Handle battle start."""
         # Emit battle start animation event for other systems to handle
         if self._animation_system:
-            self.events.emit(EngineEvent.SCENE_TRANSITION, {
+            self.events.publish(EngineEvent.SCENE_TRANSITION, {
                 'type': 'battle_start_animation',
             })
         self.state = BattleState.TURN_START
@@ -598,7 +599,7 @@ class BattleSystem:
 
         # No animation - emit event and proceed immediately
         elif result:
-            self.events.emit(EngineEvent.ENTITY_MODIFIED, {
+            self.events.publish(EngineEvent.ENTITY_MODIFIED, {
                 'type': 'battle_action',
                 'actor': cmd.actor.name,
                 'action': cmd.action_type.name,
@@ -711,7 +712,7 @@ class BattleSystem:
                                 rewards.levels_gained[actor.entity_id] = levels
 
         # Emit end event
-        self.events.emit(EngineEvent.SCENE_TRANSITION, {
+        self.events.publish(EngineEvent.SCENE_TRANSITION, {
             'type': 'battle_end',
             'result': self.state.name,
             'rewards': {
@@ -788,7 +789,7 @@ class BattleSystem:
             return
 
         cmd = self._pending_command
-        self.events.emit(EngineEvent.ENTITY_MODIFIED, {
+        self.events.publish(EngineEvent.ENTITY_MODIFIED, {
             'type': 'battle_action',
             'actor': cmd.actor.name if cmd else 'Unknown',
             'action': cmd.action_type.name if cmd else 'ATTACK',

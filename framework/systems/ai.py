@@ -44,8 +44,9 @@ class AISystem(System):
     - Combat encounter triggers
     """
 
-    def __init__(self):
+    def __init__(self, world: World):
         super().__init__()
+        self._world = world
         self.event_bus: Optional[EventBus] = None
         self.game_map: Optional[GameMap] = None
         self.required_components = {Transform, AIController}

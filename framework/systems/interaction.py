@@ -51,7 +51,8 @@ class InteractionSystem(System):
         events: EventBus,
         input_handler: InputHandler,
     ):
-        super().__init__(world)
+        super().__init__()
+        self._world = world
         self.events = events
         self.input = input_handler
 
