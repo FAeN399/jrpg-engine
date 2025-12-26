@@ -1,0 +1,55 @@
+[project]
+name = "jrpg-engine"
+version = "0.1.0"
+description = "A flexible JRPG game engine with modern pixel art aesthetics"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Developer"}
+]
+keywords = ["game", "engine", "jrpg", "pygame", "opengl"]
+
+dependencies = [
+    "pygame>=2.5.0",
+    "moderngl>=5.8.0",
+    "numpy>=1.24.0",
+    "pydantic>=2.0.0",
+    "imgui-bundle>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["engine*", "framework*", "editor*", "game*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
