@@ -4,9 +4,13 @@ Combat components - battle stats, status effects, damage types.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from __future__ import annotations
+
 from enum import Enum, auto
 from typing import Optional
+
+from pydantic import Field
+from dataclasses import dataclass
 
 from engine.core.component import Component
 
@@ -89,7 +93,6 @@ class StatusEffect:
         return self.duration <= 0
 
 
-@dataclass
 class CombatStats(Component):
     """
     Combat-specific modifiers and state.
@@ -121,10 +124,10 @@ class CombatStats(Component):
     evasion: float = 0.0
     critical_chance: float = 0.05
     critical_multiplier: float = 2.0
-    status_effects: list[StatusEffect] = field(default_factory=list)
-    resistances: dict[DamageType, float] = field(default_factory=dict)
-    weaknesses: dict[DamageType, float] = field(default_factory=dict)
-    immunities: set[StatusType] = field(default_factory=set)
+    status_effects: list[StatusEffect] = Field(default_factory=list)
+    resistances: dict[DamageType, float] = Field(default_factory=dict)
+    weaknesses: dict[DamageType, float] = Field(default_factory=dict)
+    immunities: set[StatusType] = Field(default_factory=set)
 
     def add_status(self, effect: StatusEffect) -> bool:
         """
@@ -200,7 +203,6 @@ class CombatStats(Component):
         self.status_effects.clear()
 
 
-@dataclass
 class BattleState(Component):
     """
     State for entities participating in battle.

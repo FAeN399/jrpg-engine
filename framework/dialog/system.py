@@ -17,6 +17,7 @@ from framework.components import DialogContext, DialogNode, DialogChoice, Dialog
 if TYPE_CHECKING:
     from engine.input.handler import InputHandler
     from imgui_bundle import imgui
+    import moderngl
 
 
 @dataclass
@@ -357,10 +358,22 @@ class DialogManager:
 class DialogRenderer:
     """
     Renders dialog boxes using ImGui.
+
+    Supports portrait texture rendering when a ModernGL context is provided.
     """
 
-    def __init__(self, dialog_manager: DialogManager):
+    def __init__(
+        self,
+        dialog_manager: DialogManager,
+        ctx: Optional['moderngl.Context'] = None,
+        portrait_base_path: str = "assets/portraits",
+    ):
         self.manager = dialog_manager
+        self._ctx = ctx
+        self._portrait_base_path = portrait_base_path
+
+        # Portrait texture cache
+        self._portrait_textures: dict[str, 'moderngl.Texture'] = {}
 
         # Visual settings
         self.box_height = 150
@@ -375,6 +388,63 @@ class DialogRenderer:
         self.text_color = (1.0, 1.0, 1.0, 1.0)
         self.choice_color = (0.8, 0.8, 0.8, 1.0)
         self.choice_selected_color = (1.0, 0.9, 0.5, 1.0)
+
+    def _load_portrait(self, portrait_id: str) -> Optional['moderngl.Texture']:
+        """
+        Load a portrait texture by ID.
+
+        Args:
+            portrait_id: Portrait identifier (filename or path)
+
+        Returns:
+            ModernGL texture or None if loading fails
+        """
+        if not self._ctx:
+            return None
+
+        # Check cache
+        if portrait_id in self._portrait_textures:
+            return self._portrait_textures[portrait_id]
+
+        # Determine path
+        import os
+        if os.path.isabs(portrait_id):
+            path = portrait_id
+        elif os.path.exists(portrait_id):
+            path = portrait_id
+        else:
+            # Try with base path
+            path = os.path.join(self._portrait_base_path, portrait_id)
+            if not os.path.exists(path):
+                # Try adding .png extension
+                path = os.path.join(self._portrait_base_path, f"{portrait_id}.png")
+
+        if not os.path.exists(path):
+            return None
+
+        try:
+            import pygame
+
+            # Load with pygame
+            surface = pygame.image.load(path)
+            surface = surface.convert_alpha()
+
+            # Flip vertically for OpenGL
+            surface = pygame.transform.flip(surface, False, True)
+
+            # Convert to texture
+            width, height = surface.get_size()
+            data = pygame.image.tostring(surface, 'RGBA', True)
+
+            texture = self._ctx.texture((width, height), 4, data)
+            texture.filter = (self._ctx.NEAREST, self._ctx.NEAREST)
+
+            # Cache it
+            self._portrait_textures[portrait_id] = texture
+            return texture
+
+        except Exception:
+            return None
 
     def render(self, screen_width: int, screen_height: int) -> None:
         """Render the dialog box."""
@@ -412,13 +482,27 @@ class DialogRenderer:
             text_start_x = self.text_padding
 
             if context.portrait:
-                # TODO: Render actual portrait texture
+                # Load portrait texture
+                portrait_texture = self._load_portrait(context.portrait)
+
                 imgui.begin_child(
                     "Portrait",
                     imgui.ImVec2(self.portrait_size, self.portrait_size),
                     imgui.ChildFlags_.borders,
                 )
-                imgui.text(f"[{context.speaker}]")
+
+                if portrait_texture:
+                    # Render the actual portrait texture
+                    imgui.image(
+                        portrait_texture.glo,
+                        imgui.ImVec2(self.portrait_size - 8, self.portrait_size - 8),
+                        imgui.ImVec2(0, 0),  # UV0
+                        imgui.ImVec2(1, 1),  # UV1
+                    )
+                else:
+                    # Fallback: show speaker name as placeholder
+                    imgui.text(f"[{context.speaker}]")
+
                 imgui.end_child()
                 imgui.same_line()
                 text_start_x = self.portrait_size + self.text_padding * 2

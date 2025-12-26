@@ -18,84 +18,6 @@ if TYPE_CHECKING:
     from engine.graphics.texture import TextureRegion
 
 
-# Batch vertex shader
-BATCH_VERTEX_SHADER = """
-#version 330 core
-
-in vec2 in_position;
-in vec2 in_texcoord;
-in vec4 in_color;
-
-out vec2 v_texcoord;
-out vec4 v_color;
-out vec2 v_worldpos;
-
-uniform mat4 u_projection;
-uniform vec2 u_camera;
-
-void main() {
-    vec2 world_pos = in_position;
-    v_worldpos = world_pos;
-
-    // Apply camera offset
-    vec2 view_pos = world_pos - u_camera;
-
-    gl_Position = u_projection * vec4(view_pos, 0.0, 1.0);
-    v_texcoord = in_texcoord;
-    v_color = in_color;
-}
-"""
-
-# Batch fragment shader (with lighting support)
-BATCH_FRAGMENT_SHADER = """
-#version 330 core
-
-in vec2 v_texcoord;
-in vec4 v_color;
-in vec2 v_worldpos;
-
-out vec4 fragColor;
-
-uniform sampler2D u_texture;
-
-// Lighting uniforms (optional)
-uniform bool u_lighting_enabled;
-uniform vec3 u_ambient;
-uniform int u_num_lights;
-uniform vec3 u_light_positions[16];  // xy = position, z = radius
-uniform vec4 u_light_colors[16];     // rgb = color, a = intensity
-
-void main() {
-    vec4 tex_color = texture(u_texture, v_texcoord);
-
-    if (tex_color.a < 0.01) {
-        discard;
-    }
-
-    vec4 color = tex_color * v_color;
-
-    if (u_lighting_enabled && u_num_lights > 0) {
-        vec3 light = u_ambient;
-
-        for (int i = 0; i < u_num_lights && i < 16; i++) {
-            vec2 light_pos = u_light_positions[i].xy;
-            float radius = u_light_positions[i].z;
-            vec3 light_color = u_light_colors[i].rgb;
-            float intensity = u_light_colors[i].a;
-
-            float dist = distance(v_worldpos, light_pos);
-            float attenuation = 1.0 - smoothstep(0.0, radius, dist);
-            attenuation = attenuation * attenuation;
-
-            light += light_color * intensity * attenuation;
-        }
-
-        color.rgb *= light;
-    }
-
-    fragColor = color;
-}
-"""
 
 
 @dataclass
@@ -171,10 +93,15 @@ class SpriteBatch:
         self.ctx = ctx
         self.max_sprites = max_sprites
 
+        # Load shaders
+        from pathlib import Path
+        vertex_src = Path("engine/graphics/shaders/sprite/batch.vert").read_text()
+        fragment_src = Path("engine/graphics/shaders/sprite/batch.frag").read_text()
+
         # Create shader program
         self.program = ctx.program(
-            vertex_shader=BATCH_VERTEX_SHADER,
-            fragment_shader=BATCH_FRAGMENT_SHADER,
+            vertex_shader=vertex_src,
+            fragment_shader=fragment_src,
         )
 
         # Create vertex buffer (dynamic)

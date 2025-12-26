@@ -4,11 +4,13 @@ Physics components - collision shapes and physics properties.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional
 
-from engine.core.component import Component
+from pydantic import Field
+from dataclasses import dataclass
+
+from engine.core.component import Component, register_component
 
 
 class ColliderType(Enum):
@@ -36,7 +38,7 @@ class CollisionLayer(Enum):
     SOLID = PLAYER | ENEMY | NPC | WALL
 
 
-@dataclass
+@register_component
 class Collider(Component):
     """
     Collision shape and layer information.
@@ -108,7 +110,7 @@ class Collider(Component):
         self.mask &= ~layer.value
 
 
-@dataclass
+@register_component
 class RigidBody(Component):
     """
     Physics body properties.
@@ -127,7 +129,7 @@ class RigidBody(Component):
     drag: float = 0.0
 
 
-@dataclass
+@register_component
 class TileCollision(Component):
     """
     Tile-based collision for maps.
@@ -138,7 +140,7 @@ class TileCollision(Component):
         tile_width: Width of tiles in pixels
         tile_height: Height of tiles in pixels
     """
-    solid_tiles: set[int] = field(default_factory=set)
+    solid_tiles: set[int] = Field(default_factory=set)
     tile_width: int = 16
     tile_height: int = 16
     # collision_map is stored separately in the map data

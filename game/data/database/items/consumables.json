@@ -1,0 +1,77 @@
+[
+    {
+        "id": "item_potion",
+        "name": "Potion",
+        "type": "consumable",
+        "description": "Restores 50 HP.",
+        "price": 50,
+        "consumable": true,
+        "effects": [
+            {
+                "type": "heal_hp",
+                "value": 50
+            }
+        ]
+    },
+    {
+        "id": "item_hi_potion",
+        "name": "Hi-Potion",
+        "type": "consumable",
+        "description": "Restores 200 HP.",
+        "price": 200,
+        "consumable": true,
+        "effects": [
+            {
+                "type": "heal_hp",
+                "value": 200
+            }
+        ]
+    },
+    {
+        "id": "item_ether",
+        "name": "Ether",
+        "type": "consumable",
+        "description": "Restores 20 MP.",
+        "price": 100,
+        "consumable": true,
+        "effects": [
+            {
+                "type": "heal_mp",
+                "value": 20
+            }
+        ]
+    },
+    {
+        "id": "item_elixir",
+        "name": "Elixir",
+        "type": "consumable",
+        "description": "Fully restores HP and MP.",
+        "price": 2000,
+        "consumable": true,
+        "effects": [
+            {
+                "type": "heal_hp",
+                "value": 9999
+            },
+            {
+                "type": "heal_mp",
+                "value": 9999
+            }
+        ]
+    },
+    {
+        "id": "item_antidote",
+        "name": "Antidote",
+        "type": "consumable",
+        "description": "Cures poison.",
+        "price": 20,
+        "consumable": true,
+        "effects": [
+            {
+                "type": "buff",
+                "value": 0,
+                "duration": 0
+            }
+        ]
+    }
+]

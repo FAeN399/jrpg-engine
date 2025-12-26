@@ -4,9 +4,13 @@ Interaction components - interactable objects, triggers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from __future__ import annotations
+
 from enum import Enum, auto
 from typing import Optional, Any
+
+from pydantic import Field
+from dataclasses import dataclass
 
 from engine.core.component import Component
 
@@ -24,7 +28,6 @@ class InteractionType(Enum):
     SAVE = auto()       # Save point
 
 
-@dataclass
 class Interactable(Component):
     """
     Makes an entity interactable.
@@ -50,7 +53,7 @@ class Interactable(Component):
     cooldown_timer: float = 0.0
     on_interact: Optional[str] = None
     on_complete: Optional[str] = None
-    data: dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=dict)
 
     def can_interact(self) -> bool:
         """Check if interaction is currently possible."""
@@ -66,7 +69,6 @@ class Interactable(Component):
             self.cooldown_timer = max(0, self.cooldown_timer - dt)
 
 
-@dataclass
 class TriggerZone(Component):
     """
     Invisible trigger zone.
@@ -91,8 +93,8 @@ class TriggerZone(Component):
     on_enter: Optional[str] = None
     on_exit: Optional[str] = None
     on_stay: Optional[str] = None
-    filter_tags: set[str] = field(default_factory=set)
-    entities_inside: set[int] = field(default_factory=set)
+    filter_tags: set[str] = Field(default_factory=set)
+    entities_inside: set[int] = Field(default_factory=set)
 
     def can_trigger(self) -> bool:
         """Check if trigger can fire."""
@@ -131,7 +133,6 @@ class TriggerZone(Component):
         self.has_fired = True
 
 
-@dataclass
 class Chest(Component):
     """
     Chest/container with loot.
@@ -147,7 +148,7 @@ class Chest(Component):
     is_open: bool = False
     is_locked: bool = False
     key_item_id: Optional[str] = None
-    contents: list[tuple[str, int]] = field(default_factory=list)
+    contents: list[tuple[str, int]] = Field(default_factory=list)
     gold: int = 0
     on_open: Optional[str] = None
 
@@ -176,7 +177,6 @@ class Chest(Component):
         return [], 0
 
 
-@dataclass
 class Door(Component):
     """
     Door/portal for map transitions.
@@ -207,7 +207,6 @@ class Door(Component):
         return bool(self.target_map)
 
 
-@dataclass
 class SavePoint(Component):
     """
     Save point marker.

@@ -1,0 +1,110 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Enemy",
+    "description": "Enemy definition for battles",
+    "type": "object",
+    "required": [
+        "id",
+        "name",
+        "level",
+        "hp",
+        "stats"
+    ],
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "level": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "hp": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "mp": {
+            "type": "integer",
+            "default": 0
+        },
+        "stats": {
+            "type": "object",
+            "required": [
+                "strength",
+                "defense",
+                "magic",
+                "resistance",
+                "speed"
+            ],
+            "properties": {
+                "strength": {
+                    "type": "integer"
+                },
+                "defense": {
+                    "type": "integer"
+                },
+                "magic": {
+                    "type": "integer"
+                },
+                "resistance": {
+                    "type": "integer"
+                },
+                "speed": {
+                    "type": "integer"
+                },
+                "luck": {
+                    "type": "integer",
+                    "default": 10
+                }
+            }
+        },
+        "rewards": {
+            "type": "object",
+            "properties": {
+                "exp": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "gold": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "drops": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "item_id",
+                            "chance"
+                        ],
+                        "properties": {
+                            "item_id": {
+                                "type": "string"
+                            },
+                            "chance": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "ai": {
+            "type": "string",
+            "default": "basic"
+        },
+        "sprite": {
+            "type": "string"
+        },
+        "skills": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}

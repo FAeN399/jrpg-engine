@@ -1,0 +1,20 @@
+[
+    {
+        "id": "key_dungeon",
+        "name": "Dungeon Key",
+        "type": "key_item",
+        "description": "Unlocks the door to the forgotten crypt.",
+        "price": 0,
+        "stackable": false,
+        "consumable": false
+    },
+    {
+        "id": "key_world_map",
+        "name": "World Map",
+        "type": "key_item",
+        "description": "A map of the known world.",
+        "price": 0,
+        "stackable": false,
+        "consumable": false
+    }
+]

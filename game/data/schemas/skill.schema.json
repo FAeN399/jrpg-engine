@@ -1,0 +1,83 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Skill",
+    "description": "Combat skill or spell",
+    "type": "object",
+    "required": [
+        "id",
+        "name",
+        "type",
+        "cost"
+    ],
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "type": {
+            "type": "string",
+            "enum": [
+                "physical",
+                "magic",
+                "support"
+            ]
+        },
+        "target": {
+            "type": "string",
+            "enum": [
+                "single",
+                "all",
+                "self",
+                "ally",
+                "all_allies"
+            ]
+        },
+        "cost": {
+            "type": "object",
+            "properties": {
+                "mp": {
+                    "type": "integer",
+                    "default": 0
+                },
+                "tp": {
+                    "type": "integer",
+                    "default": 0
+                }
+            }
+        },
+        "power": {
+            "type": "integer",
+            "default": 0
+        },
+        "element": {
+            "type": "string",
+            "default": "neutral"
+        },
+        "description": {
+            "type": "string"
+        },
+        "animation_id": {
+            "type": "string"
+        },
+        "effects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "number"
+                    },
+                    "chance": {
+                        "type": "number",
+                        "default": 1.0
+                    }
+                }
+            }
+        }
+    }
+}

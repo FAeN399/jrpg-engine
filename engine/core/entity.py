@@ -211,14 +211,14 @@ class Entity:
     # Serialization
 
     def to_dict(self) -> dict:
-        """Serialize entity to dictionary."""
+        """Serialize entity to dictionary (JSON-compatible)."""
         return {
             "id": self._id,
             "name": self._name,
             "active": self._active,
             "tags": list(self._tags),
             "components": {
-                comp_type.__name__: comp.model_dump()
+                comp_type.__name__: comp.model_dump(mode='json')
                 for comp_type, comp in self._components.items()
             }
         }

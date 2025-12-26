@@ -4,7 +4,11 @@
       "Bash(gh auth:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: JRPG Engine Suite\n\nComplete game development suite built in Python for AI-assisted JRPG creation.\n\n## Phases Completed:\n- Phase 1: Core Engine \\(ECS, events, input, scene management\\)\n- Phase 2: GPU Rendering \\(ModernGL, lighting, particles, post-fx\\)\n- Phase 3: Editor Foundation \\(ImGui panels, docking, tools\\)\n- Phase 4: JRPG Framework \\(battle, dialog, quests, save/load\\)\n\n## Architecture:\n- Pygame + ModernGL for GPU-accelerated rendering\n- Data-only components, logic-only systems \\(ECS-lite\\)\n- Typed events \\(Enums, not magic strings\\)\n- Action-based input \\(rebindable\\)\n- ImGui-based visual editor\n\n## File Count: ~90 files\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(gh repo create:*)",
+      "Bash(python:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

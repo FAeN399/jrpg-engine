@@ -110,8 +110,26 @@ class AssetBrowserPanel(Panel):
         self._needs_refresh = True
 
     def update(self, dt: float) -> None:
-        # TODO: Hot reload detection
+        # Hot reload detection is handled by EditorScene.asset_watcher
+        # When assets change, mark for refresh via notify_asset_changed()
         pass
+
+    def notify_asset_changed(self, path: Path) -> None:
+        """
+        Called when an asset file changes.
+
+        Marks the browser for refresh if the changed file is within
+        the current browsing path.
+        """
+        try:
+            # Check if changed file is in our current view
+            if self._current_path and path.is_relative_to(self._current_path):
+                self._needs_refresh = True
+            elif self._root_path and path.is_relative_to(self._root_path):
+                self._needs_refresh = True
+        except (ValueError, TypeError):
+            # Path comparison failed - just refresh to be safe
+            self._needs_refresh = True
 
     def _render_content(self) -> None:
         # Toolbar

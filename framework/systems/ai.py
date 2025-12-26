@@ -4,10 +4,12 @@ AI system - processes NPC behavior.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Callable
+from enum import Enum, auto
 import random
 
 from engine.core import System, World, Entity
+from engine.core.events import EventBus
 from framework.components import (
     Transform,
     Velocity,
@@ -22,6 +24,14 @@ if TYPE_CHECKING:
     from framework.world.map import GameMap
 
 
+class AIEvent(Enum):
+    """AI system events."""
+    ENCOUNTER_TRIGGERED = auto()  # entity_id, player_id, encounter_type
+    AGGRO_GAINED = auto()         # entity_id, target_id
+    AGGRO_LOST = auto()           # entity_id
+    STATE_CHANGED = auto()        # entity_id, old_state, new_state
+
+
 class AISystem(System):
     """
     Processes AI behavior for NPCs and enemies.
@@ -31,13 +41,42 @@ class AISystem(System):
     - Patrol paths
     - Chasing targets
     - Returning home
+    - Combat encounter triggers
     """
 
-    def __init__(self, world: World, game_map: Optional[GameMap] = None):
-        super().__init__(world)
-        self.game_map = game_map
+    def __init__(self):
+        super().__init__()
+        self.event_bus: Optional[EventBus] = None
+        self.game_map: Optional[GameMap] = None
         self.required_components = {Transform, AIController}
         self._player_entity: Optional[Entity] = None
+
+        # Encounter tracking
+        self._encounter_cooldown: float = 0.0
+        self._encounter_cooldown_duration: float = 2.0  # Seconds between encounters
+        self._entities_in_attack_range: set[int] = set()
+
+        # Callbacks for encounter handling
+        self.on_encounter: Optional[Callable[[int, int, str], None]] = None
+
+    def configure(
+        self,
+        event_bus: Optional[EventBus] = None,
+        game_map: Optional[GameMap] = None,
+    ) -> 'AISystem':
+        """
+        Configure the AI system after creation.
+
+        Args:
+            event_bus: EventBus for publishing events
+            game_map: Game map for pathfinding/collision
+
+        Returns:
+            Self for chaining
+        """
+        self.event_bus = event_bus
+        self.game_map = game_map
+        return self
 
     def set_map(self, game_map: GameMap) -> None:
         """Set the current map."""
@@ -49,11 +88,15 @@ class AISystem(System):
 
     def update(self, dt: float) -> None:
         """Update all AI entities."""
-        entities = self.world.get_entities_with_components(
+        # Update encounter cooldown
+        if self._encounter_cooldown > 0:
+            self._encounter_cooldown -= dt
+
+        entities = self.world.get_entities_with(
             Transform, AIController
         )
-        for entity_id in entities:
-            self._process_entity(entity_id, dt)
+        for entity in entities:
+            self._process_entity(entity.id, dt)
 
     def _process_entity(self, entity_id: int, dt: float) -> None:
         """Process AI for a single entity."""
@@ -182,8 +225,20 @@ class AISystem(System):
 
         player_dist = self._get_player_distance(transform)
 
-        if player_dist is not None and player_dist < ai.sight_range:
-            # Player in sight, chase
+        if player_dist is not None and player_dist < ai.attack_range:
+            # In attack range
+            ai.state = AIState.ATTACK
+            velocity.vx = 0
+            velocity.vy = 0
+
+            # Trigger encounter if not already triggered
+            if entity.id not in self._entities_in_attack_range:
+                self._entities_in_attack_range.add(entity.id)
+                self._try_trigger_encounter(entity, "guard")
+
+        elif player_dist is not None and player_dist < ai.sight_range:
+            # Player in sight, chase (but not in attack range)
+            self._entities_in_attack_range.discard(entity.id)
             ai.state = AIState.CHASE
             if self._player_entity:
                 player_t = self._player_entity.get(Transform)
@@ -194,6 +249,9 @@ class AISystem(System):
                         ai.move_speed
                     )
         else:
+            # Not chasing
+            self._entities_in_attack_range.discard(entity.id)
+
             # Check if far from home
             dist_home = ((transform.x - ai.home_x) ** 2 +
                         (transform.y - ai.home_y) ** 2) ** 0.5
@@ -229,6 +287,7 @@ class AISystem(System):
             ai.state = AIState.IDLE
             velocity.vx = 0
             velocity.vy = 0
+            self._entities_in_attack_range.discard(entity.id)
             return
 
         if player_dist < ai.attack_range:
@@ -236,9 +295,14 @@ class AISystem(System):
             ai.state = AIState.ATTACK
             velocity.vx = 0
             velocity.vy = 0
-            # TODO: Trigger attack
+
+            # Trigger encounter if not already in range and cooldown expired
+            if entity.id not in self._entities_in_attack_range:
+                self._entities_in_attack_range.add(entity.id)
+                self._try_trigger_encounter(entity, "aggressive")
         elif player_dist < ai.sight_range:
-            # Chase player
+            # Chase player (no longer in attack range)
+            self._entities_in_attack_range.discard(entity.id)
             ai.state = AIState.CHASE
             if self._player_entity:
                 player_t = self._player_entity.get(Transform)
@@ -249,7 +313,8 @@ class AISystem(System):
                         ai.move_speed
                     )
         elif player_dist < ai.chase_range and ai.state == AIState.CHASE:
-            # Continue chasing
+            # Continue chasing (no longer in attack range)
+            self._entities_in_attack_range.discard(entity.id)
             if self._player_entity:
                 player_t = self._player_entity.get(Transform)
                 if player_t:
@@ -259,7 +324,8 @@ class AISystem(System):
                         ai.move_speed
                     )
         else:
-            # Return home or idle
+            # Return home or idle (no longer in attack range)
+            self._entities_in_attack_range.discard(entity.id)
             dist_home = ((transform.x - ai.home_x) ** 2 +
                         (transform.y - ai.home_y) ** 2) ** 0.5
             if dist_home > 8.0:
@@ -336,3 +402,62 @@ class AISystem(System):
             velocity.vx = (dx / length) * speed
             velocity.vy = (dy / length) * speed
             transform.facing = Direction.from_vector(dx, dy)
+
+    # Encounter triggering
+
+    def _try_trigger_encounter(self, entity: Entity, encounter_type: str) -> bool:
+        """
+        Try to trigger a combat encounter.
+
+        Args:
+            entity: The enemy entity initiating the encounter
+            encounter_type: Type of encounter (e.g., "aggressive", "guard")
+
+        Returns:
+            True if encounter was triggered
+        """
+        # Check cooldown
+        if self._encounter_cooldown > 0:
+            return False
+
+        if not self._player_entity:
+            return False
+
+        player_id = self._player_entity.id
+        entity_id = entity.id
+
+        # Set cooldown
+        self._encounter_cooldown = self._encounter_cooldown_duration
+
+        # Call callback if set
+        if self.on_encounter:
+            try:
+                self.on_encounter(entity_id, player_id, encounter_type)
+            except Exception as e:
+                print(f"Error in encounter callback: {e}")
+
+        # Publish event
+        if self.event_bus:
+            self.event_bus.publish(
+                AIEvent.ENCOUNTER_TRIGGERED,
+                entity_id=entity_id,
+                player_id=player_id,
+                encounter_type=encounter_type,
+                entity_name=entity.name,
+            )
+
+        print(f"Encounter triggered: {entity.name} ({encounter_type})")
+        return True
+
+    def set_encounter_cooldown(self, duration: float) -> None:
+        """Set the cooldown duration between encounters."""
+        self._encounter_cooldown_duration = max(0.1, duration)
+
+    def clear_encounter_tracking(self) -> None:
+        """Clear encounter state (e.g., after battle ends)."""
+        self._entities_in_attack_range.clear()
+        self._encounter_cooldown = 0.0
+
+    def process_entity(self, entity: Entity, dt: float) -> None:
+        """Process a single entity (required by System base class)."""
+        self._process_entity(entity.id, dt)

@@ -4,9 +4,11 @@ AI components - behavior state, patrol paths, targeting.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional
+
+from pydantic import Field, PrivateAttr
+from dataclasses import dataclass
 
 from engine.core.component import Component
 
@@ -44,7 +46,6 @@ class PatrolPoint:
     action: Optional[str] = None  # Optional action to perform
 
 
-@dataclass
 class PatrolPath(Component):
     """
     Patrol path for AI movement.
@@ -56,12 +57,12 @@ class PatrolPath(Component):
         reverse: Patrol in reverse (ping-pong)
         wait_timer: Current wait time at point
     """
-    points: list[PatrolPoint] = field(default_factory=list)
+    points: list[PatrolPoint] = Field(default_factory=list)
     current_index: int = 0
     loop: bool = True
     reverse: bool = False
     wait_timer: float = 0.0
-    _direction: int = 1  # 1 = forward, -1 = backward
+    _direction: int = PrivateAttr(default=1)  # 1 = forward, -1 = backward
 
     @property
     def current_point(self) -> Optional[PatrolPoint]:
@@ -112,7 +113,6 @@ class PatrolPath(Component):
         self.points.append(PatrolPoint(x=x, y=y, wait_time=wait_time))
 
 
-@dataclass
 class AIController(Component):
     """
     AI behavior controller.
@@ -174,7 +174,6 @@ class AIController(Component):
         return False
 
 
-@dataclass
 class Aggro(Component):
     """
     Aggression/threat tracking for combat.
@@ -183,7 +182,7 @@ class Aggro(Component):
         threat_table: Map of entity ID to threat value
         max_entries: Maximum entries in threat table
     """
-    threat_table: dict[int, float] = field(default_factory=dict)
+    threat_table: dict[int, float] = Field(default_factory=dict)
     max_entries: int = 10
 
     def add_threat(self, entity_id: int, amount: float) -> None:

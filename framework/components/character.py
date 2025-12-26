@@ -4,11 +4,13 @@ Character components - stats, health, experience, classes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Optional
 
-from engine.core.component import Component
+from pydantic import Field
+from dataclasses import dataclass
+
+from engine.core.component import Component, register_component
 
 
 class CharacterClass(Enum):
@@ -22,7 +24,7 @@ class CharacterClass(Enum):
     # Add more as needed
 
 
-@dataclass
+@register_component
 class CharacterStats(Component):
     """
     Base character statistics.
@@ -66,7 +68,7 @@ class CharacterStats(Component):
         return self.agility + (self.level // 2)
 
 
-@dataclass
+@register_component
 class Health(Component):
     """
     Health points tracking.
@@ -82,7 +84,7 @@ class Health(Component):
     regen_rate: float = 0.0
     is_dead: bool = False
 
-    def __post_init__(self):
+    def model_post_init(self, __context):
         """Ensure current doesn't exceed max."""
         self.current = min(self.current, self.max_hp)
         self.is_dead = self.current <= 0
@@ -138,7 +140,7 @@ class Health(Component):
         self.is_dead = False
 
 
-@dataclass
+@register_component
 class Mana(Component):
     """
     Mana/MP points tracking.
@@ -152,7 +154,7 @@ class Mana(Component):
     max_mp: int = 50
     regen_rate: float = 1.0
 
-    def __post_init__(self):
+    def model_post_init(self, __context):
         """Ensure current doesn't exceed max."""
         self.current = min(self.current, self.max_mp)
 
@@ -193,7 +195,7 @@ class Mana(Component):
         return self.current - old
 
 
-@dataclass
+@register_component
 class Experience(Component):
     """
     Experience and leveling tracking.

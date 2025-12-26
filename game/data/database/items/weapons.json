@@ -1,0 +1,38 @@
+[
+    {
+        "id": "weapon_iron_sword",
+        "name": "Iron Sword",
+        "type": "weapon",
+        "description": "A standard soldier's sword.",
+        "price": 100,
+        "stats": {
+            "attack": 10,
+            "speed": 0
+        },
+        "equipment_slot": "weapon"
+    },
+    {
+        "id": "weapon_steel_sword",
+        "name": "Steel Sword",
+        "type": "weapon",
+        "description": "A well-forged steel sword.",
+        "price": 500,
+        "stats": {
+            "attack": 25,
+            "speed": 5
+        },
+        "equipment_slot": "weapon"
+    },
+    {
+        "id": "weapon_magic_staff",
+        "name": "Apprentice Staff",
+        "type": "weapon",
+        "description": "A wooden staff for casting spells.",
+        "price": 150,
+        "stats": {
+            "attack": 5,
+            "magic": 15
+        },
+        "equipment_slot": "weapon"
+    }
+]

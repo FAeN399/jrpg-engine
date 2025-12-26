@@ -4,9 +4,13 @@ Dialog components - conversation state, speakers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from __future__ import annotations
+
 from enum import Enum, auto
 from typing import Optional, Any
+
+from pydantic import Field
+from dataclasses import dataclass, field
 
 from engine.core.component import Component
 
@@ -48,7 +52,6 @@ class DialogNode:
         return len(self.choices) > 0
 
 
-@dataclass
 class DialogSpeaker(Component):
     """
     Makes an entity able to speak in dialogs.
@@ -67,7 +70,6 @@ class DialogSpeaker(Component):
     text_color: Optional[tuple[int, int, int]] = None
 
 
-@dataclass
 class DialogContext(Component):
     """
     Runtime dialog state for the player/system.
@@ -95,9 +97,9 @@ class DialogContext(Component):
     typewriter_speed: float = 30.0
     speaker_name: str = ""
     portrait: Optional[str] = None
-    choices: list[DialogChoice] = field(default_factory=list)
+    choices: list[DialogChoice] = Field(default_factory=list)
     selected_choice: int = 0
-    variables: dict[str, Any] = field(default_factory=dict)
+    variables: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def is_active(self) -> bool:

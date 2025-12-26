@@ -3,8 +3,10 @@ Save module - game state persistence.
 
 Provides:
 - Save/load game state
-- Multiple save slots
+- Multiple save slots (10 by default)
+- Auto-save functionality
 - Save metadata (playtime, location, level)
+- Checksum validation
 - Game flags for progression
 """
 
@@ -14,6 +16,7 @@ from framework.save.manager import (
     PlayerSaveData,
     InventorySaveData,
     GameSaveData,
+    SaveEvent,
 )
 
 __all__ = [
@@ -22,4 +25,5 @@ __all__ = [
     "PlayerSaveData",
     "InventorySaveData",
     "GameSaveData",
+    "SaveEvent",
 ]

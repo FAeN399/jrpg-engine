@@ -1,0 +1,48 @@
+[
+    {
+        "id": "dialog_intro",
+        "nodes": [
+            {
+                "id": "start",
+                "speaker": "Elder",
+                "text": "Welcome, young warrior. Are you ready?",
+                "choices": [
+                    {
+                        "text": "Yes, I am ready.",
+                        "next_node": "ready"
+                    },
+                    {
+                        "text": "I need more time.",
+                        "next_node": "wait"
+                    }
+                ]
+            },
+            {
+                "id": "ready",
+                "speaker": "Elder",
+                "text": "Excellent. Take this sword.",
+                "events": [
+                    {
+                        "type": "give_item",
+                        "params": {
+                            "id": "weapon_iron_sword",
+                            "count": 1
+                        }
+                    },
+                    {
+                        "type": "start_quest",
+                        "params": {
+                            "id": "quest_main_01"
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "wait",
+                "speaker": "Elder",
+                "text": "Come back when you are prepared.",
+                "next_node": "exit"
+            }
+        ]
+    }
+]

@@ -93,13 +93,15 @@ class CodebaseVerifier:
             self.current_suite.results.append(test_result)
 
         status = "PASS" if passed else "FAIL"
-        icon = "✓" if passed else "✗"
+        icon = "[+]" if passed else "[-]"
         print(f"  [{status}] {icon} {name}")
 
         if error and not passed:
             # Print first line of error
             first_line = error.split('\n')[0]
-            print(f"         └─ {first_line}")
+            print(f"         L- {first_line}")
+            if len(error.split('\n')) > 1:
+                 print(f"            {error.split(chr(10))[1]}")
 
         return passed
 
@@ -329,10 +331,9 @@ def main():
 
     def test_entity_creation():
         from engine.core import Entity
-        e = Entity(1)
-        e.name = "Test"
-        e.tags.add("test")
-        return e.id == 1 and e.name == "Test" and "test" in e.tags
+        e = Entity("Test")
+        e.add_tag("test")
+        return e.id > 0 and e.name == "Test" and e.has_tag("test")
     v.test("Entity creation", test_entity_creation)
 
     def test_world_creation():
@@ -346,8 +347,8 @@ def main():
         from engine.core.events import EventBus, EngineEvent
         bus = EventBus()
         received = []
-        bus.subscribe(EngineEvent.ENTITY_CREATED, lambda d: received.append(d))
-        bus.emit(EngineEvent.ENTITY_CREATED, {"id": 1})
+        bus.subscribe(EngineEvent.ENTITY_CREATED, lambda d: received.append(d), weak=False)
+        bus.publish(EngineEvent.ENTITY_CREATED, **{"id": 1})
         return len(received) == 1 and received[0]["id"] == 1
     v.test("EventBus pub/sub", test_event_bus)
 
@@ -355,10 +356,11 @@ def main():
         from engine.core.scene import SceneManager, Scene
         class TestScene(Scene):
             def update(self, dt): pass
-            def render(self): pass
-        sm = SceneManager()
+            def render(self, alpha): pass
+        sm = SceneManager(None)
         ts = TestScene(None)
         sm.push(ts)
+        sm._process_pending()  # Process the deferred push operation
         return sm.current == ts
     v.test("SceneManager", test_scene_manager)
 
@@ -419,12 +421,12 @@ def main():
         attacker = BattleActor(
             entity_id=1, name="Attacker", actor_type=ActorType.PLAYER,
             stats=CharacterStats(strength=20),
-            health=Health(100, 100), mana=None, combat=CombatStats(),
+            health=Health(current=100, max_hp=100), mana=None, combat=CombatStats(),
         )
         defender = BattleActor(
             entity_id=2, name="Defender", actor_type=ActorType.ENEMY,
             stats=CharacterStats(defense=10),
-            health=Health(50, 50), mana=None, combat=CombatStats(),
+            health=Health(current=50, max_hp=50), mana=None, combat=CombatStats(),
         )
 
         executor = BattleActionExecutor()
@@ -524,26 +526,26 @@ Goodbye!
 
 if __name__ == "__main__":
     print("""
-╔══════════════════════════════════════════════════════════════╗
-║           JRPG ENGINE SUITE - CODEBASE VERIFICATION          ║
-╠══════════════════════════════════════════════════════════════╣
-║  This script verifies the integrity of the codebase.         ║
-║                                                              ║
-║  Phases verified:                                            ║
-║    Phase 1: Core Engine (ECS, events, input)                 ║
-║    Phase 2: GPU Rendering (ModernGL, shaders)                ║
-║    Phase 3: Editor (ImGui, panels, tools)                    ║
-║    Phase 4: JRPG Framework (battle, dialog, quests, etc.)    ║
-╚══════════════════════════════════════════════════════════════╝
+==============================================================
+            JRPG ENGINE SUITE - CODEBASE VERIFICATION
+==============================================================
+  This script verifies the integrity of the codebase.
+
+  Phases verified:
+    Phase 1: Core Engine (ECS, events, input)
+    Phase 2: GPU Rendering (ModernGL, shaders)
+    Phase 3: Editor (ImGui, panels, tools)
+    Phase 4: JRPG Framework (battle, dialog, quests, etc.)
+==============================================================
 """)
 
     exit_code = main()
 
     if exit_code == 0:
-        print("\n✓ All verification tests passed!")
+        print("\n[+] All verification tests passed!")
         print("  The codebase is structurally sound.")
     else:
-        print("\n✗ Some verification tests failed.")
+        print("\n[-] Some verification tests failed.")
         print("  Review the failures above and fix any issues.")
 
     sys.exit(exit_code)

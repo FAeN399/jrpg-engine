@@ -1,0 +1,73 @@
+[
+    {
+        "id": "armor_leather_tunic",
+        "name": "Leather Tunic",
+        "type": "armor",
+        "description": "Basic protection made of cured leather.",
+        "price": 50,
+        "stats": {
+            "defense": 5,
+            "speed": 1
+        },
+        "equipment_slot": "body"
+    },
+    {
+        "id": "armor_chainmail",
+        "name": "Chainmail",
+        "type": "armor",
+        "description": "Interlocking metal rings offer decent protection.",
+        "price": 250,
+        "stats": {
+            "defense": 15,
+            "speed": -2
+        },
+        "equipment_slot": "body"
+    },
+    {
+        "id": "armor_iron_plate",
+        "name": "Iron Plate",
+        "type": "armor",
+        "description": "Heavy iron plating for maximum defense.",
+        "price": 800,
+        "stats": {
+            "defense": 35,
+            "speed": -5
+        },
+        "equipment_slot": "body"
+    },
+    {
+        "id": "armor_mage_robe",
+        "name": "Apprentice Robe",
+        "type": "armor",
+        "description": "Light cloth infused with minor mana.",
+        "price": 100,
+        "stats": {
+            "defense": 3,
+            "magic": 10
+        },
+        "equipment_slot": "body"
+    },
+    {
+        "id": "helm_leather_cap",
+        "name": "Leather Cap",
+        "type": "armor",
+        "description": "Keeps your head warm and safe.",
+        "price": 30,
+        "stats": {
+            "defense": 2
+        },
+        "equipment_slot": "head"
+    },
+    {
+        "id": "helm_iron_helm",
+        "name": "Iron Helm",
+        "type": "armor",
+        "description": "Standard issue soldier helmet.",
+        "price": 150,
+        "stats": {
+            "defense": 8,
+            "speed": -1
+        },
+        "equipment_slot": "head"
+    }
+]

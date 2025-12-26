@@ -4,9 +4,11 @@ Inventory components - items, equipment, container.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Callable, Iterator
+
+from pydantic import Field
+from dataclasses import dataclass
 
 from engine.core.component import Component
 
@@ -88,7 +90,6 @@ class ItemStack:
         )
 
 
-@dataclass
 class Inventory(Component):
     """
     Item container.
@@ -98,11 +99,11 @@ class Inventory(Component):
         max_slots: Maximum inventory size
         gold: Currency amount
     """
-    slots: list[Optional[ItemStack]] = field(default_factory=list)
+    slots: list[Optional[ItemStack]] = Field(default_factory=list)
     max_slots: int = 20
     gold: int = 0
 
-    def __post_init__(self):
+    def model_post_init(self, __context):
         """Initialize empty slots."""
         if not self.slots:
             self.slots = [None] * self.max_slots
@@ -218,8 +219,97 @@ class Inventory(Component):
             return True
         return False
 
+    # Filtering methods
 
-@dataclass
+    def get_items(self) -> list[ItemStack]:
+        """
+        Get all non-empty item stacks.
+
+        Returns:
+            List of ItemStack objects (no None values)
+        """
+        return [slot for slot in self.slots if slot is not None]
+
+    def get_item_ids(self) -> list[str]:
+        """
+        Get unique item IDs in inventory.
+
+        Returns:
+            List of unique item ID strings
+        """
+        return list({slot.item_id for slot in self.slots if slot is not None})
+
+    def iter_items(self) -> Iterator[tuple[int, ItemStack]]:
+        """
+        Iterate over items with their slot indices.
+
+        Yields:
+            (slot_index, ItemStack) tuples for non-empty slots
+        """
+        for i, slot in enumerate(self.slots):
+            if slot is not None:
+                yield i, slot
+
+    def filter_items(
+        self,
+        predicate: Callable[[str], bool],
+    ) -> list[ItemStack]:
+        """
+        Filter items by a predicate function.
+
+        The predicate receives the item_id and returns True to include.
+
+        Args:
+            predicate: Function(item_id) -> bool
+
+        Returns:
+            List of matching ItemStacks
+
+        Example:
+            # Get all potions (assuming item_database lookup)
+            potions = inventory.filter_items(
+                lambda id: item_database[id].type == ItemType.CONSUMABLE
+            )
+        """
+        return [
+            slot for slot in self.slots
+            if slot is not None and predicate(slot.item_id)
+        ]
+
+    def filter_item_ids(
+        self,
+        predicate: Callable[[str], bool],
+    ) -> list[str]:
+        """
+        Filter and return matching item IDs.
+
+        Args:
+            predicate: Function(item_id) -> bool
+
+        Returns:
+            List of matching item IDs (unique)
+        """
+        return list({
+            slot.item_id for slot in self.slots
+            if slot is not None and predicate(slot.item_id)
+        })
+
+    def get_stacks_of(self, item_id: str) -> list[ItemStack]:
+        """
+        Get all stacks of a specific item.
+
+        Args:
+            item_id: Item ID to find
+
+        Returns:
+            List of ItemStacks with matching item_id
+        """
+        return [
+            slot for slot in self.slots
+            if slot is not None and slot.item_id == item_id
+        ]
+
+
 class Equipment(Component):
     """
     Equipped items on a character.
@@ -227,9 +317,9 @@ class Equipment(Component):
     Attributes:
         slots: Map of slot type to equipped item ID
     """
-    slots: dict[EquipmentSlot, Optional[str]] = field(default_factory=dict)
+    slots: dict[EquipmentSlot, Optional[str]] = Field(default_factory=dict)
 
-    def __post_init__(self):
+    def model_post_init(self, __context):
         """Initialize all equipment slots."""
         for slot in EquipmentSlot:
             if slot not in self.slots and slot != EquipmentSlot.NONE:

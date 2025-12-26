@@ -60,15 +60,16 @@ class CollisionSystem(System):
         self._grid.clear()
 
         # Get all collidable entities
-        entities = list(self.world.get_entities_with_components(
+        entities = list(self.world.get_entities_with(
             Transform, Collider
         ))
 
         # Insert into spatial grid
-        for entity_id in entities:
-            entity = self.world.get_entity(entity_id)
+        for entity in entities:
+            # entity = self.world.get_entity(entity_id) # Redundant
             if not entity:
                 continue
+            entity_id = entity.id # Extract ID for grid
 
             transform = entity.get(Transform)
             collider = entity.get(Collider)

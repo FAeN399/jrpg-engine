@@ -1,0 +1,32 @@
+[
+    {
+        "id": "skill_bash",
+        "name": "Shield Bash",
+        "type": "physical",
+        "target": "single",
+        "cost": {
+            "tp": 10
+        },
+        "power": 15,
+        "description": "Strike enemy with shield. Chance to stun.",
+        "effects": [
+            {
+                "type": "stun",
+                "chance": 0.3,
+                "value": 1.0
+            }
+        ]
+    },
+    {
+        "id": "skill_fireball",
+        "name": "Fireball",
+        "type": "magic",
+        "target": "single",
+        "element": "fire",
+        "cost": {
+            "mp": 5
+        },
+        "power": 30,
+        "description": "Hurl a ball of fire."
+    }
+]

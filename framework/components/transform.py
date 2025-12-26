@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from engine.core.component import Component
+from engine.core.component import Component, register_component
 
 
 class Direction(Enum):
@@ -57,7 +57,7 @@ class Direction(Enum):
                 return Direction.DOWN_LEFT if dy > 0 else Direction.UP_LEFT
 
 
-@dataclass
+@register_component
 class Transform(Component):
     """
     Position and orientation in world space.
@@ -111,7 +111,7 @@ class Transform(Component):
         return (dx * dx + dy * dy) ** 0.5
 
 
-@dataclass
+@register_component
 class Velocity(Component):
     """
     Movement velocity.

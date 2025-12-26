@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from engine.core import System, World
+from engine.core import System, World, Entity
 from framework.components import Transform, Velocity, Collider
 
 if TYPE_CHECKING:
@@ -24,7 +24,8 @@ class MovementSystem(System):
     """
 
     def __init__(self, world: World, game_map: Optional[GameMap] = None):
-        super().__init__(world)
+        super().__init__()
+        self._world = world
         self.game_map = game_map
         self.required_components = {Transform, Velocity}
 
@@ -55,7 +56,7 @@ class MovementSystem(System):
         new_y = transform.y + velocity.vy * dt
 
         # Collision detection
-        collider = entity.get(Collider)
+        collider = entity.try_get(Collider)
         if collider and self.game_map and not collider.is_trigger:
             # Separate X and Y collision for sliding
             # Check X movement
@@ -84,8 +85,12 @@ class MovementSystem(System):
 
     def update(self, dt: float) -> None:
         """Update all entities with movement."""
-        entities = self.world.get_entities_with_components(
+        entities = self.world.get_entities_with(
             Transform, Velocity
         )
-        for entity_id in entities:
-            self.process(entity_id, dt)
+        for entity in entities:
+            self.process(entity.id, dt)
+
+    def process_entity(self, entity: Entity, dt: float) -> None:
+        """Process a single entity (required by System)."""
+        self.process(entity.id, dt)

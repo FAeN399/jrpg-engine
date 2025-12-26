@@ -1,0 +1,46 @@
+[
+    {
+        "id": "enemy_slime",
+        "name": "Green Slime",
+        "level": 1,
+        "hp": 30,
+        "stats": {
+            "strength": 5,
+            "defense": 5,
+            "magic": 0,
+            "resistance": 2,
+            "speed": 3
+        },
+        "rewards": {
+            "exp": 10,
+            "gold": 5,
+            "drops": [
+                {
+                    "item_id": "item_slime_gel",
+                    "chance": 0.5
+                }
+            ]
+        },
+        "ai": "basic",
+        "sprite": "slime_green"
+    },
+    {
+        "id": "enemy_wolf",
+        "name": "Forest Wolf",
+        "level": 3,
+        "hp": 80,
+        "stats": {
+            "strength": 12,
+            "defense": 8,
+            "magic": 0,
+            "resistance": 5,
+            "speed": 15
+        },
+        "rewards": {
+            "exp": 30,
+            "gold": 15
+        },
+        "ai": "aggressive",
+        "sprite": "wolf_grey"
+    }
+]

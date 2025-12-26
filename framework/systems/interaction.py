@@ -88,12 +88,11 @@ class InteractionSystem(System):
             return
 
         # Update cooldowns
-        for entity_id in self.world.get_entities_with_components(Interactable):
-            entity = self.world.get_entity(entity_id)
-            if entity:
-                interact = entity.get(Interactable)
-                if interact:
-                    interact.update_cooldown(dt)
+        # Update cooldowns
+        for entity in self.world.get_entities_with(Interactable):
+            interact = entity.get(Interactable)
+            if interact:
+                interact.update_cooldown(dt)
 
         # Find nearest interactable
         self._nearest_interactable = self._find_nearest_interactable(player_t)
@@ -119,10 +118,9 @@ class InteractionSystem(System):
         check_x = player_t.x + facing_vec[0] * self._interaction_range * 0.5
         check_y = player_t.y + facing_vec[1] * self._interaction_range * 0.5
 
-        for entity_id in self.world.get_entities_with_components(
+        for entity in self.world.get_entities_with(
             Transform, Interactable
         ):
-            entity = self.world.get_entity(entity_id)
             if not entity or entity.id == self._player.id:
                 continue
 
@@ -191,7 +189,7 @@ class InteractionSystem(System):
             speaker = target.get(DialogSpeaker)
             if speaker and speaker.dialog_id:
                 # Emit dialog start event
-                self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                self.events.publish(EngineEvent.SCENE_TRANSITION, {
                     'type': 'dialog_start',
                     'dialog_id': speaker.dialog_id,
                     'speaker': speaker.name,
@@ -202,7 +200,7 @@ class InteractionSystem(System):
             chest = target.get(Chest)
             if chest and chest.can_open():
                 items, gold = chest.open()
-                self.events.emit(EngineEvent.ENTITY_REMOVED, {
+                self.events.publish(EngineEvent.ENTITY_REMOVED, {
                     'type': 'chest_opened',
                     'items': items,
                     'gold': gold,
@@ -212,7 +210,7 @@ class InteractionSystem(System):
         elif itype == InteractionType.ENTER:
             door = target.get(Door)
             if door and door.can_enter():
-                self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                self.events.publish(EngineEvent.SCENE_TRANSITION, {
                     'type': 'map_transition',
                     'target_map': door.target_map,
                     'target_x': door.target_x,
@@ -224,7 +222,7 @@ class InteractionSystem(System):
             interact = target.get(Interactable)
             if interact:
                 text = interact.data.get('text', '')
-                self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                self.events.publish(EngineEvent.SCENE_TRANSITION, {
                     'type': 'show_message',
                     'text': text,
                 })
@@ -232,7 +230,7 @@ class InteractionSystem(System):
         elif itype == InteractionType.SAVE:
             save_point = target.get(SavePoint)
             if save_point and save_point.is_active:
-                self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                self.events.publish(EngineEvent.SCENE_TRANSITION, {
                     'type': 'save_prompt',
                     'heal': save_point.heal_on_save,
                 })
@@ -241,10 +239,9 @@ class InteractionSystem(System):
         """Process trigger zones."""
         player_id = self._player.id if self._player else -1
 
-        for entity_id in self.world.get_entities_with_components(
+        for entity in self.world.get_entities_with(
             Transform, TriggerZone
         ):
-            entity = self.world.get_entity(entity_id)
             if not entity:
                 continue
 
@@ -269,7 +266,7 @@ class InteractionSystem(System):
                 # Player entered
                 trigger.entity_entered(player_id)
                 if trigger.on_enter:
-                    self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                    self.events.publish(EngineEvent.SCENE_TRANSITION, {
                         'type': 'trigger_enter',
                         'script': trigger.on_enter,
                         'entity_id': entity.id,
@@ -281,7 +278,7 @@ class InteractionSystem(System):
                 # Player exited
                 trigger.entity_exited(player_id)
                 if trigger.on_exit:
-                    self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                    self.events.publish(EngineEvent.SCENE_TRANSITION, {
                         'type': 'trigger_exit',
                         'script': trigger.on_exit,
                         'entity_id': entity.id,
@@ -289,7 +286,7 @@ class InteractionSystem(System):
 
             elif in_zone and was_inside and trigger.on_stay:
                 # Player staying
-                self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                self.events.publish(EngineEvent.SCENE_TRANSITION, {
                     'type': 'trigger_stay',
                     'script': trigger.on_stay,
                     'entity_id': entity.id,

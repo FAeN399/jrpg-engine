@@ -5,6 +5,8 @@ All components are Pydantic models containing only data.
 Logic lives in Systems, not in components.
 """
 
+from engine.core.component import register_component
+
 from framework.components.transform import Transform, Velocity, Direction
 from framework.components.physics import (
     Collider,
@@ -57,6 +59,12 @@ from framework.components.interaction import (
     Door,
     SavePoint,
 )
+from framework.components.animated_sprite import (
+    AnimatedSprite,
+    Sprite,
+    SpriteFlash,
+    SpriteLayer,
+)
 
 __all__ = [
     # Transform
@@ -107,4 +115,34 @@ __all__ = [
     "Chest",
     "Door",
     "SavePoint",
+    # Sprites
+    "AnimatedSprite",
+    "Sprite",
+    "SpriteFlash",
+    "SpriteLayer",
 ]
+
+# Register all components for deserialization
+_components_to_register = [
+    # Transform
+    Transform, Velocity,
+    # Physics
+    Collider, RigidBody, TileCollision,
+    # Character
+    CharacterStats, Health, Mana, Experience,
+    # Combat
+    CombatStats, BattleState,
+    # Inventory
+    Inventory, Equipment,
+    # Dialog
+    DialogContext, DialogSpeaker,
+    # AI
+    AIController, PatrolPath, Aggro,
+    # Interaction
+    Interactable, TriggerZone, Chest, Door, SavePoint,
+    # Sprites
+    AnimatedSprite, Sprite, SpriteFlash,
+]
+
+for _comp in _components_to_register:
+    register_component(_comp)

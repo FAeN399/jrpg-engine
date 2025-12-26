@@ -30,6 +30,10 @@ from framework.battle.system import (
     BattleCommand,
     BattleRewards,
 )
+from framework.battle.ui_controller import (
+    BattleUIController,
+    BattleEvent,
+)
 
 __all__ = [
     # Actor
@@ -50,4 +54,7 @@ __all__ = [
     "CommandMenu",
     "BattleCommand",
     "BattleRewards",
+    # UI Controller
+    "BattleUIController",
+    "BattleEvent",
 ]

@@ -1,0 +1,39 @@
+[
+    {
+        "id": "quest_main_01",
+        "title": "The Beginning",
+        "description": "Your journey begins.",
+        "type": "main",
+        "stages": [
+            {
+                "id": 1,
+                "description": "Speak to the Elder.",
+                "objectives": [
+                    {
+                        "type": "talk",
+                        "target": "npc_elder",
+                        "count": 1
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "description": "Defeat 3 Slimes in the forest.",
+                "objectives": [
+                    {
+                        "type": "kill",
+                        "target": "enemy_slime",
+                        "count": 3
+                    }
+                ]
+            }
+        ],
+        "rewards": {
+            "exp": 100,
+            "gold": 50,
+            "items": {
+                "weapon_iron_sword": 1
+            }
+        }
+    }
+]

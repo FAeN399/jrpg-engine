@@ -1,0 +1,58 @@
+{
+  "sfx_path": "game/assets/audio/sfx/",
+  "bgm_path": "game/assets/audio/bgm/",
+  "sounds": {
+    "UI_CONFIRM": "ui/confirm.ogg",
+    "UI_CANCEL": "ui/cancel.ogg",
+    "UI_CURSOR": "ui/cursor.ogg",
+    "UI_ERROR": "ui/error.ogg",
+    "MENU_OPEN": "ui/menu_open.ogg",
+    "MENU_CLOSE": "ui/menu_close.ogg",
+    "DIALOG_BLIP": "ui/text_blip.ogg",
+    "DIALOG_CHOICE": "ui/choice_select.ogg",
+    "BATTLE_START": "battle/start.ogg",
+    "BATTLE_VICTORY": "battle/victory.ogg",
+    "BATTLE_DEFEAT": "battle/defeat.ogg",
+    "BATTLE_HIT": "battle/hit.ogg",
+    "BATTLE_MISS": "battle/miss.ogg",
+    "BATTLE_CRITICAL": "battle/critical.ogg",
+    "ITEM_GET": "system/item_get.ogg",
+    "QUEST_COMPLETE": "system/quest_complete.ogg",
+    "LEVEL_UP": "system/level_up.ogg",
+    "SAVE": "system/save.ogg",
+    "LOAD": "system/load.ogg"
+  },
+  "scene_bgm": {
+    "title": {
+      "track": "title_theme.ogg",
+      "loop": true,
+      "fade_in_ms": 2000,
+      "volume": 1.0
+    },
+    "overworld": {
+      "track": "overworld.ogg",
+      "loop": true,
+      "fade_in_ms": 1000
+    },
+    "town": {
+      "track": "town.ogg",
+      "loop": true,
+      "fade_in_ms": 1000
+    },
+    "dungeon": {
+      "track": "dungeon.ogg",
+      "loop": true,
+      "fade_in_ms": 500
+    },
+    "battle": {
+      "track": "battle.ogg",
+      "loop": true,
+      "fade_in_ms": 0
+    },
+    "boss": {
+      "track": "boss_battle.ogg",
+      "loop": true,
+      "fade_in_ms": 0
+    }
+  }
+}

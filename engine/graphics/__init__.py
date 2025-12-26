@@ -10,6 +10,7 @@ Exports:
 - LightingSystem, PointLight, AmbientLight, DayNightCycle: Lighting
 - ParticleSystem, ParticleEmitter, ParticleConfig, ParticlePresets: Particles
 - PostProcessingChain, BloomEffect, VignetteEffect: Post-processing
+- Animation: AnimationClip, AnimationSet, AnimationController, etc.
 """
 
 from engine.graphics.context import GraphicsContext, create_fullscreen_quad
@@ -27,6 +28,13 @@ from engine.graphics.particles import (
 from engine.graphics.postfx import (
     PostProcessingChain, PostEffect,
     BloomEffect, VignetteEffect, ColorGradeEffect, FadeEffect,
+)
+from engine.graphics.animation import (
+    LoopMode, AnimationFrame, AnimationClip, AnimationSet, AnimationController,
+    create_directional_animations,
+)
+from engine.graphics.animator import (
+    AnimationLoader, AnimationManager, generate_grid_regions,
 )
 
 __all__ = [
@@ -68,4 +76,14 @@ __all__ = [
     "VignetteEffect",
     "ColorGradeEffect",
     "FadeEffect",
+    # Animation
+    "LoopMode",
+    "AnimationFrame",
+    "AnimationClip",
+    "AnimationSet",
+    "AnimationController",
+    "create_directional_animations",
+    "AnimationLoader",
+    "AnimationManager",
+    "generate_grid_regions",
 ]

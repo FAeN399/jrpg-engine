@@ -51,6 +51,31 @@ class EngineEvent(Enum):
     COMPONENT_REMOVED = auto()
 
 
+class AudioEvent(Enum):
+    """Audio system events."""
+    BGM_STARTED = auto()
+    BGM_STOPPED = auto()
+    BGM_CROSSFADE = auto()
+    SFX_PLAYED = auto()
+
+
+class UIEvent(Enum):
+    """UI system events."""
+    MENU_OPENED = auto()
+    MENU_CLOSED = auto()
+    DIALOG_STARTED = auto()
+    DIALOG_ENDED = auto()
+    WIDGET_FOCUSED = auto()
+    WIDGET_UNFOCUSED = auto()
+    BUTTON_CLICKED = auto()
+    SELECTION_CHANGED = auto()
+    TEXT_INPUT = auto()
+    INVENTORY_OPENED = auto()
+    INVENTORY_CLOSED = auto()
+    SHOP_OPENED = auto()
+    SHOP_CLOSED = auto()
+
+
 @dataclass
 class Event:
     """

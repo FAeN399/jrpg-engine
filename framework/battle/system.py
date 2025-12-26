@@ -32,6 +32,9 @@ from framework.battle.actions import (
 
 if TYPE_CHECKING:
     from engine.input.handler import InputHandler
+    from framework.systems.animation import AnimationSystem
+
+from framework.systems.animation import AnimationEvent
 
 
 class BattleState(Enum):
@@ -160,6 +163,7 @@ class BattleSystem:
         world: World,
         events: EventBus,
         input_handler: InputHandler,
+        animation_system: Optional[AnimationSystem] = None,
     ):
         self.world = world
         self.events = events
@@ -195,6 +199,16 @@ class BattleSystem:
         # Available items (from party inventory)
         self._available_items: list[str] = []
 
+        # Animation integration
+        self._animation_system: Optional[AnimationSystem] = animation_system
+        self._pending_result: Optional[ActionResult] = None
+        self._pending_targets: list[BattleActor] = []
+        self._animation_entity_id: Optional[int] = None
+        self._damage_applied: bool = False
+
+        # Set up animation event handlers
+        self._setup_animation_handlers()
+
     def register_enemy(self, enemy: EnemyData) -> None:
         """Register an enemy type."""
         self._enemy_database[enemy.id] = enemy
@@ -206,6 +220,23 @@ class BattleSystem:
     def register_item(self, item: ItemData) -> None:
         """Register an item."""
         self._executor.register_item(item)
+
+    def _setup_animation_handlers(self) -> None:
+        """Subscribe to animation events."""
+        if not self._animation_system:
+            return
+
+        # Subscribe to animation completion
+        self.events.subscribe(
+            AnimationEvent.ANIMATION_COMPLETED,
+            self._on_animation_completed,
+        )
+
+        # Subscribe to frame events for damage timing
+        self.events.subscribe(
+            AnimationEvent.FRAME_EVENT,
+            self._on_frame_event,
+        )
 
     def start_battle(
         self,
@@ -325,6 +356,11 @@ class BattleSystem:
         elif self.state == BattleState.EXECUTING:
             self._execute_command()
 
+        elif self.state == BattleState.ANIMATION:
+            # Animation is playing - wait for completion event
+            # AnimationSystem.update() drives the animation
+            pass
+
         elif self.state == BattleState.TURN_END:
             self._on_turn_end()
 
@@ -338,7 +374,11 @@ class BattleSystem:
 
     def _on_battle_start(self) -> None:
         """Handle battle start."""
-        # TODO: Play battle start animation
+        # Emit battle start animation event for other systems to handle
+        if self._animation_system:
+            self.events.emit(EngineEvent.SCENE_TRANSITION, {
+                'type': 'battle_start_animation',
+            })
         self.state = BattleState.TURN_START
 
     def _on_turn_start(self) -> None:
@@ -419,8 +459,8 @@ class BattleSystem:
                 self._sub_menu_open = True
 
         elif self._current_menu == CommandMenu.ITEM:
-            # TODO: Get available items from inventory
-            self._available_items = []  # Would come from inventory
+            # Get available items from party inventory
+            self._available_items = self._get_party_items()
             if self._available_items:
                 self._item_selection = 0
                 self._sub_menu_open = True
@@ -482,14 +522,8 @@ class BattleSystem:
 
     def _handle_target_selection(self) -> None:
         """Handle target selection."""
-        # Determine valid targets
-        if self._pending_command.action_type == ActionType.ATTACK:
-            targets = [e for e in self._enemies if e.is_alive]
-        elif self._pending_command.action_type == ActionType.SKILL:
-            # TODO: Get target type from skill
-            targets = [e for e in self._enemies if e.is_alive]
-        else:
-            targets = [a for a in self._party if a.is_alive]
+        # Determine valid targets based on action type
+        targets = self._get_targets_for_action(self._pending_command)
 
         if not targets:
             self.state = BattleState.PLAYER_INPUT
@@ -539,8 +573,31 @@ class BattleSystem:
                 self.state = BattleState.FLED
                 return
 
-        # Emit result event
-        if result:
+        # Check if we should play animation
+        if result and self._should_animate(cmd):
+            # Store result for deferred application
+            self._pending_result = result
+            self._pending_targets = cmd.targets.copy() if cmd.targets else []
+            self._damage_applied = False
+
+            # Determine animation to play
+            animation_id = self._get_action_animation_id(cmd)
+            entity_id = self._get_actor_entity_id(cmd.actor)
+
+            if animation_id and entity_id and self._animation_system:
+                self._animation_entity_id = entity_id
+                if self._animation_system.play(entity_id, animation_id, restart=True):
+                    self.state = BattleState.ANIMATION
+                    return
+
+            # Animation failed to start - apply immediately
+            self._apply_action_result(result, self._pending_targets)
+            self._flash_targets(result)
+            self._pending_result = None
+            self._pending_targets = []
+
+        # No animation - emit event and proceed immediately
+        elif result:
             self.events.emit(EngineEvent.ENTITY_MODIFIED, {
                 'type': 'battle_action',
                 'actor': cmd.actor.name,
@@ -548,6 +605,14 @@ class BattleSystem:
                 'damage': result.damage_dealt,
                 'healing': result.healing_done,
             })
+
+            # Apply flash effects immediately if animation system exists
+            if self._animation_system:
+                for target in cmd.targets:
+                    if result.damage_dealt.get(target.entity_id, 0) > 0:
+                        self._animation_system.damage_flash(target.entity_id)
+                    elif result.healing_done.get(target.entity_id, 0) > 0:
+                        self._animation_system.heal_flash(target.entity_id)
 
         self._pending_command = None
         self.state = BattleState.TURN_END
@@ -669,6 +734,206 @@ class BattleSystem:
         self._pending_command = None
         self._current_actor = None
         self.state = BattleState.NONE
+
+    # Animation event handlers
+
+    def _on_animation_completed(self, **kwargs: Any) -> None:
+        """Handle animation completion."""
+        if self.state != BattleState.ANIMATION:
+            return
+
+        entity_id = kwargs.get('entity_id')
+
+        # Only respond to our current animation
+        if entity_id != self._animation_entity_id:
+            return
+
+        # Apply any remaining damage that wasn't applied on frame event
+        if self._pending_result and not self._damage_applied:
+            self._apply_action_result(self._pending_result, self._pending_targets)
+            self._flash_targets(self._pending_result)
+
+        # Clean up and transition
+        self._pending_result = None
+        self._pending_targets = []
+        self._animation_entity_id = None
+        self._damage_applied = False
+        self._pending_command = None
+        self.state = BattleState.TURN_END
+
+    def _on_frame_event(self, **kwargs: Any) -> None:
+        """Handle animation frame events (e.g., 'attack_hit')."""
+        if self.state != BattleState.ANIMATION:
+            return
+
+        entity_id = kwargs.get('entity_id')
+        event_name = kwargs.get('event_name')
+
+        if entity_id != self._animation_entity_id:
+            return
+
+        # Apply damage on hit frame
+        if event_name == "attack_hit" and self._pending_result:
+            self._apply_action_result(self._pending_result, self._pending_targets)
+            self._flash_targets(self._pending_result)
+            self._damage_applied = True
+
+    def _apply_action_result(
+        self,
+        result: ActionResult,
+        targets: list[BattleActor],
+    ) -> None:
+        """Apply an action result and emit event."""
+        if not result:
+            return
+
+        cmd = self._pending_command
+        self.events.emit(EngineEvent.ENTITY_MODIFIED, {
+            'type': 'battle_action',
+            'actor': cmd.actor.name if cmd else 'Unknown',
+            'action': cmd.action_type.name if cmd else 'ATTACK',
+            'damage': result.damage_dealt,
+            'healing': result.healing_done,
+        })
+
+    def _flash_targets(self, result: ActionResult) -> None:
+        """Apply flash effects to damaged/healed targets."""
+        if not self._animation_system or not result:
+            return
+
+        for target in self._pending_targets:
+            entity_id = target.entity_id
+
+            if result.damage_dealt.get(entity_id, 0) > 0:
+                self._animation_system.damage_flash(entity_id)
+            elif result.healing_done.get(entity_id, 0) > 0:
+                self._animation_system.heal_flash(entity_id)
+
+    def _should_animate(self, cmd: BattleCommand) -> bool:
+        """Check if this command should play an animation."""
+        if not self._animation_system:
+            return False
+
+        # Only animate attacks and skills for now
+        return cmd.action_type in (ActionType.ATTACK, ActionType.SKILL)
+
+    def _get_action_animation_id(self, cmd: BattleCommand) -> Optional[str]:
+        """Get the animation ID for an action."""
+        if cmd.action_type == ActionType.ATTACK:
+            return "attack"  # Default attack animation
+
+        if cmd.action_type == ActionType.SKILL and cmd.skill_id:
+            skill = self._executor._skill_database.get(cmd.skill_id)
+            if skill and hasattr(skill, 'animation_id') and skill.animation_id:
+                return skill.animation_id
+            return "skill_default"  # Fallback
+
+        return None
+
+    def _get_actor_entity_id(self, actor: BattleActor) -> Optional[int]:
+        """Get the entity ID for animation playback."""
+        return actor.entity_id
+
+    # Inventory and targeting helpers
+
+    def _get_party_items(self) -> list[str]:
+        """
+        Get list of usable items from party inventory.
+
+        Returns:
+            List of item IDs that can be used in battle
+        """
+        available = []
+
+        # Check each party member's inventory for usable items
+        for actor in self._party:
+            entity = self.world.get_entity(actor.entity_id)
+            if not entity:
+                continue
+
+            inventory = entity.try_get(Inventory)
+            if not inventory:
+                continue
+
+            # Get unique item IDs from inventory slots
+            for slot in inventory.slots:
+                if slot and slot.item_id:
+                    # Check if item is registered as a battle item
+                    if slot.item_id in self._executor._item_database:
+                        if slot.item_id not in available:
+                            available.append(slot.item_id)
+
+        return available
+
+    def _get_targets_for_action(self, cmd: BattleCommand) -> list[BattleActor]:
+        """
+        Get valid targets for an action based on its target type.
+
+        Args:
+            cmd: The battle command
+
+        Returns:
+            List of valid target actors
+        """
+        if cmd.action_type == ActionType.ATTACK:
+            # Attacks target enemies
+            return [e for e in self._enemies if e.is_alive]
+
+        elif cmd.action_type == ActionType.SKILL:
+            # Get target type from skill definition
+            if cmd.skill_id:
+                skill = self._executor._skill_database.get(cmd.skill_id)
+                if skill:
+                    return self._get_targets_for_type(skill.target_type)
+            # Default to enemies
+            return [e for e in self._enemies if e.is_alive]
+
+        elif cmd.action_type == ActionType.ITEM:
+            # Get target type from item definition
+            if cmd.item_id:
+                item = self._executor._item_database.get(cmd.item_id)
+                if item:
+                    return self._get_targets_for_type(item.target_type)
+            # Default to allies
+            return [a for a in self._party if a.is_alive]
+
+        else:
+            # Defend and other actions target self
+            return [cmd.actor] if cmd.actor.is_alive else []
+
+    def _get_targets_for_type(self, target_type: TargetType) -> list[BattleActor]:
+        """
+        Get targets based on target type enum.
+
+        Args:
+            target_type: The targeting type
+
+        Returns:
+            List of valid target actors
+        """
+        if target_type == TargetType.SELF:
+            return [self._current_actor] if self._current_actor.is_alive else []
+
+        elif target_type == TargetType.SINGLE_ALLY:
+            return [a for a in self._party if a.is_alive]
+
+        elif target_type == TargetType.ALL_ALLIES:
+            return [a for a in self._party if a.is_alive]
+
+        elif target_type == TargetType.SINGLE_ENEMY:
+            return [e for e in self._enemies if e.is_alive]
+
+        elif target_type == TargetType.ALL_ENEMIES:
+            return [e for e in self._enemies if e.is_alive]
+
+        elif target_type == TargetType.ALL:
+            return [a for a in self._party + self._enemies if a.is_alive]
+
+        elif target_type == TargetType.DEAD_ALLY:
+            return [a for a in self._party if not a.is_alive]
+
+        else:
+            return []
 
     def on_battle_end(self, callback: Callable[[BattleRewards], None]) -> None:
         """Set callback for battle end."""

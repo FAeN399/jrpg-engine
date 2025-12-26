@@ -16,12 +16,24 @@ import pygame
 from imgui_bundle import imgui
 
 from engine.core import Game, GameConfig, Scene, Action
+from engine.core.world import World
+from engine.core.entity import Entity
+from engine.graphics.tilemap import Tilemap, TileLayer
 from editor.imgui_backend import ImGuiRenderer
 from editor.panels.base import Panel, PanelManager
 from editor.panels.map_editor import MapEditorPanel
 from editor.panels.asset_browser import AssetBrowserPanel
 from editor.panels.properties import PropertiesPanel
 from editor.panels.scene_view import SceneViewPanel
+from editor.panels.entity_hierarchy import EntityHierarchyPanel
+from editor.panels.component_inspector import ComponentInspectorPanel
+from editor.project import (
+    ask_open_file, ask_save_file, ask_yes_no_cancel, show_info,
+    ProjectData, tilemap_to_dict, tilemap_from_dict,
+    world_to_dict, world_from_dict, save_project, load_project,
+    PROJECT_FILETYPES,
+)
+from editor.asset_watcher import AssetWatcher, AssetEvent, AssetEventType
 
 if TYPE_CHECKING:
     pass
@@ -57,10 +69,16 @@ class EditorState:
         self.project_path: Path | None = None
         self.project_name: str = "Untitled"
 
+        # World reference (set when editing a scene)
+        self.current_world: World | None = None
+
+        # Tilemap for editing
+        self.current_tilemap: Tilemap | None = None
+
         # Selection
         self.selected_entity_id: int | None = None
         self.selected_tile: tuple[int, int] | None = None
-        self.selected_layer: str | None = None
+        self.selected_layer: str | None = "Ground"
 
         # Tools
         self.current_tool: str = "select"
@@ -75,6 +93,39 @@ class EditorState:
 
         # Dirty flag
         self.is_dirty: bool = False
+
+    def create_new_tilemap(self, width: int = 32, height: int = 32, tile_size: int = 16) -> Tilemap:
+        """Create a new tilemap for editing."""
+        self.current_tilemap = Tilemap(width, height, tile_size)
+        # Add default layers
+        self.current_tilemap.add_layer("Ground")
+        self.current_tilemap.add_layer("Decor")
+        self.current_tilemap.add_layer("Objects")
+        self.selected_layer = "Ground"
+        self.grid_size = tile_size
+        return self.current_tilemap
+
+    def get_current_layer(self) -> TileLayer | None:
+        """Get the currently selected tile layer."""
+        if self.current_tilemap and self.selected_layer:
+            return self.current_tilemap.get_layer(self.selected_layer)
+        return None
+
+    def get_selected_entity(self) -> Entity | None:
+        """Get the currently selected entity from the world."""
+        if self.current_world and self.selected_entity_id is not None:
+            return self.current_world.get_entity(self.selected_entity_id)
+        return None
+
+    def select_entity(self, entity_id: int | None) -> None:
+        """Select an entity by ID."""
+        self.selected_entity_id = entity_id
+
+    def clear_selection(self) -> None:
+        """Clear all selections."""
+        self.selected_entity_id = None
+        self.selected_tile = None
+        self.selected_layer = None
 
     def mark_dirty(self) -> None:
         """Mark project as having unsaved changes."""
@@ -100,6 +151,7 @@ class EditorScene(Scene):
         # Will be initialized in on_enter
         self.imgui_renderer: ImGuiRenderer | None = None
         self.panel_manager: PanelManager | None = None
+        self.asset_watcher: AssetWatcher | None = None
 
     def on_enter(self) -> None:
         super().on_enter()
@@ -121,12 +173,25 @@ class EditorScene(Scene):
         self.panel_manager.add_panel(MapEditorPanel(self.game, self.state))
         self.panel_manager.add_panel(AssetBrowserPanel(self.game, self.state))
         self.panel_manager.add_panel(PropertiesPanel(self.game, self.state))
+        self.panel_manager.add_panel(EntityHierarchyPanel(self.game, self.state))
+        self.panel_manager.add_panel(ComponentInspectorPanel(self.game, self.state))
+
+        # Create a default world for editing
+        self.state.current_world = World()
+
+        # Initialize asset watcher for hot reload
+        self._setup_asset_watcher()
 
         print("Editor initialized!")
         print("Panels:", [p.title for p in self.panel_manager.panels])
 
     def on_exit(self) -> None:
         super().on_exit()
+
+        # Stop asset watcher
+        if self.asset_watcher:
+            self.asset_watcher.stop()
+
         if self.imgui_renderer:
             self.imgui_renderer.shutdown()
 
@@ -150,27 +215,101 @@ class EditorScene(Scene):
             if self.state.mode == EditorMode.PLAY:
                 self.state.mode = EditorMode.EDIT
             else:
-                # TODO: Show quit confirmation if dirty
-                self.game.quit()
+                self._request_quit()
 
-        # Ctrl+S to save
-        if (input.is_key_pressed(pygame.K_LCTRL) and
-            input.is_key_just_pressed(pygame.K_s)):
-            self._save_project()
+        ctrl = input.is_key_pressed(pygame.K_LCTRL) or input.is_key_pressed(pygame.K_RCTRL)
+        shift = input.is_key_pressed(pygame.K_LSHIFT) or input.is_key_pressed(pygame.K_RSHIFT)
+
+        # Ctrl+N to new project
+        if ctrl and input.is_key_just_pressed(pygame.K_n):
+            self._new_project()
+
+        # Ctrl+O to open project
+        if ctrl and input.is_key_just_pressed(pygame.K_o):
+            self._open_project()
+
+        # Ctrl+S to save, Ctrl+Shift+S to save as
+        if ctrl and input.is_key_just_pressed(pygame.K_s):
+            if shift:
+                self._save_project_as()
+            else:
+                self._save_project()
 
         # Ctrl+Z to undo
-        if (input.is_key_pressed(pygame.K_LCTRL) and
-            input.is_key_just_pressed(pygame.K_z)):
+        if ctrl and input.is_key_just_pressed(pygame.K_z):
             self._undo()
 
         # Ctrl+Y to redo
-        if (input.is_key_pressed(pygame.K_LCTRL) and
-            input.is_key_just_pressed(pygame.K_y)):
+        if ctrl and input.is_key_just_pressed(pygame.K_y):
             self._redo()
 
         # Update panels
         if self.panel_manager:
             self.panel_manager.update(dt)
+
+    def _request_quit(self) -> None:
+        """Request to quit the editor, checking for unsaved changes."""
+        if self._check_unsaved_changes():
+            self.game.quit()
+
+    # Asset hot reload
+
+    def _setup_asset_watcher(self) -> None:
+        """Initialize asset watcher for hot reload."""
+        self.asset_watcher = AssetWatcher(debounce_seconds=0.5)
+        self.asset_watcher.add_callback(self._on_asset_changed)
+
+        # Watch common asset directories
+        asset_dirs = ["assets", "sprites", "textures", "audio", "data"]
+        for dir_name in asset_dirs:
+            path = Path(dir_name)
+            if path.exists():
+                self.asset_watcher.watch(path)
+
+        # Also watch project-relative paths
+        if self.state.project_path:
+            project_dir = self.state.project_path.parent
+            for dir_name in asset_dirs:
+                path = project_dir / dir_name
+                if path.exists():
+                    self.asset_watcher.watch(path)
+
+        # Start watching
+        if self.asset_watcher.is_available:
+            self.asset_watcher.start()
+        else:
+            print("Note: Install 'watchdog' for faster hot reload")
+
+    def _on_asset_changed(self, event: AssetEvent) -> None:
+        """Handle asset file changes."""
+        # Notify asset browser panel
+        if self.panel_manager:
+            for panel in self.panel_manager.panels:
+                if hasattr(panel, 'notify_asset_changed'):
+                    panel.notify_asset_changed(event.path)
+
+        # Only handle modifications for now
+        if event.event_type not in (AssetEventType.MODIFIED, AssetEventType.CREATED):
+            return
+
+        # Handle image changes - reload texture
+        if event.is_image:
+            if hasattr(self.game, 'texture_manager'):
+                try:
+                    self.game.texture_manager.reload(event.path)
+                    print(f"Hot reloaded texture: {event.path.name}")
+                except Exception as e:
+                    print(f"Failed to reload texture {event.path.name}: {e}")
+
+        # Handle data file changes
+        elif event.is_data:
+            print(f"Data file changed: {event.path.name}")
+            # Could trigger re-parsing of game data here
+
+        # Handle audio changes
+        elif event.is_audio:
+            print(f"Audio file changed: {event.path.name}")
+            # Could trigger audio cache reload here
 
     def render(self, alpha: float) -> None:
         ctx = self.game.ctx
@@ -385,31 +524,168 @@ class EditorScene(Scene):
 
     # Project operations
 
+    def _check_unsaved_changes(self) -> bool:
+        """
+        Check for unsaved changes and prompt user.
+
+        Returns:
+            True if safe to proceed, False if user cancelled
+        """
+        if not self.state.is_dirty:
+            return True
+
+        result = ask_yes_no_cancel(
+            "Unsaved Changes",
+            f"Project '{self.state.project_name}' has unsaved changes.\n\n"
+            "Do you want to save before continuing?"
+        )
+
+        if result is None:
+            # User cancelled
+            return False
+        elif result:
+            # User wants to save
+            return self._save_project()
+
+        # User chose not to save - proceed anyway
+        return True
+
     def _new_project(self) -> None:
         """Create a new project."""
+        if not self._check_unsaved_changes():
+            return
+
+        # Reset state
         self.state.project_path = None
         self.state.project_name = "Untitled"
+        self.state.current_tilemap = None
+        self.state.selected_entity_id = None
+        self.state.selected_tile = None
+        self.state.selected_layer = "Ground"
+
+        # Create fresh world
+        if self.state.current_world:
+            self.state.current_world.clear()
+        self.state.current_world = World()
+
         self.state.mark_clean()
         print("New project created")
 
     def _open_project(self) -> None:
         """Open an existing project."""
-        # TODO: File dialog
-        print("Open project (TODO: file dialog)")
+        if not self._check_unsaved_changes():
+            return
 
-    def _save_project(self) -> None:
-        """Save the current project."""
-        if self.state.project_path:
-            # TODO: Actual save
-            self.state.mark_clean()
-            print(f"Project saved to {self.state.project_path}")
+        # Show file dialog
+        filepath = ask_open_file(
+            title="Open Project",
+            filetypes=PROJECT_FILETYPES,
+            initial_dir=self.state.project_path.parent if self.state.project_path else None,
+        )
+
+        if not filepath:
+            return
+
+        # Load project data
+        project_data = load_project(filepath)
+        if not project_data:
+            return
+
+        # Apply to editor state
+        self.state.project_path = filepath
+        self.state.project_name = project_data.name
+        self.state.grid_size = project_data.grid_size
+        self.state.show_grid = project_data.show_grid
+        self.state.show_collision = project_data.show_collision
+
+        # Load tilemap
+        if project_data.tilemap:
+            self.state.current_tilemap = tilemap_from_dict(project_data.tilemap)
+            if self.state.current_tilemap.layers:
+                self.state.selected_layer = self.state.current_tilemap.layers[0].name
         else:
-            self._save_project_as()
+            self.state.current_tilemap = None
 
-    def _save_project_as(self) -> None:
-        """Save project with new name."""
-        # TODO: File dialog
-        print("Save project as (TODO: file dialog)")
+        # Load entities
+        if self.state.current_world:
+            self.state.current_world.clear()
+        self.state.current_world = World()
+        if project_data.entities:
+            world_from_dict(self.state.current_world, project_data.entities)
+
+        self.state.selected_entity_id = None
+        self.state.selected_tile = None
+        self.state.mark_clean()
+
+        print(f"Project loaded: {filepath}")
+
+    def _save_project(self) -> bool:
+        """
+        Save the current project.
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        if self.state.project_path:
+            return self._do_save(self.state.project_path)
+        else:
+            return self._save_project_as()
+
+    def _save_project_as(self) -> bool:
+        """
+        Save project with new name.
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        filepath = ask_save_file(
+            title="Save Project As",
+            filetypes=PROJECT_FILETYPES,
+            initial_dir=self.state.project_path.parent if self.state.project_path else None,
+            initial_file=self.state.project_name,
+            default_extension=".jrpg",
+        )
+
+        if not filepath:
+            return False
+
+        return self._do_save(filepath)
+
+    def _do_save(self, filepath: Path) -> bool:
+        """
+        Actually save the project to a file.
+
+        Args:
+            filepath: Path to save to
+
+        Returns:
+            True if successful
+        """
+        # Build project data
+        project_data = ProjectData(
+            name=self.state.project_name or filepath.stem,
+            grid_size=self.state.grid_size,
+            show_grid=self.state.show_grid,
+            show_collision=self.state.show_collision,
+        )
+
+        # Serialize tilemap
+        if self.state.current_tilemap:
+            project_data.tilemap = tilemap_to_dict(self.state.current_tilemap)
+
+        # Serialize entities
+        if self.state.current_world:
+            project_data.entities = world_to_dict(self.state.current_world)
+
+        # Save to file
+        if save_project(filepath, project_data):
+            self.state.project_path = filepath
+            self.state.project_name = filepath.stem
+            self.state.mark_clean()
+            print(f"Project saved: {filepath}")
+            return True
+
+        return False
 
     def _run_project(self) -> None:
         """Run the project in play mode."""

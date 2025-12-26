@@ -1,0 +1,103 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Item",
+    "description": "A game item (weapon, armor, consumable, etc.)",
+    "type": "object",
+    "required": [
+        "id",
+        "name",
+        "type",
+        "description",
+        "price"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+        },
+        "name": {
+            "type": "string"
+        },
+        "type": {
+            "type": "string",
+            "enum": [
+                "weapon",
+                "armor",
+                "consumable",
+                "key_item",
+                "material"
+            ]
+        },
+        "description": {
+            "type": "string"
+        },
+        "price": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "icon": {
+            "type": "string"
+        },
+        "stackable": {
+            "type": "boolean",
+            "default": true
+        },
+        "consumable": {
+            "type": "boolean",
+            "default": false
+        },
+        "stats": {
+            "type": "object",
+            "properties": {
+                "attack": {
+                    "type": "integer"
+                },
+                "defense": {
+                    "type": "integer"
+                },
+                "speed": {
+                    "type": "integer"
+                },
+                "magic": {
+                    "type": "integer"
+                }
+            }
+        },
+        "effects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "type",
+                    "value"
+                ],
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "heal_hp",
+                            "heal_mp",
+                            "buff",
+                            "debuff"
+                        ]
+                    },
+                    "value": {
+                        "type": "number"
+                    },
+                    "duration": {
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        "equipment_slot": {
+            "type": "string",
+            "enum": [
+                "weapon",
+                "head",
+                "body",
+                "accessory"
+            ]
+        }
+    }
+}

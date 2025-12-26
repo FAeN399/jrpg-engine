@@ -18,7 +18,7 @@ from engine.core.entity import Entity
 from engine.core.component import Component, register_component, get_component_type
 from engine.core.system import System, RenderSystem
 from engine.core.world import World
-from engine.core.events import EventBus, Event, EngineEvent
+from engine.core.events import EventBus, Event, EngineEvent, UIEvent, AudioEvent
 from engine.core.actions import Action
 
 __all__ = [
@@ -40,6 +40,8 @@ __all__ = [
     "EventBus",
     "Event",
     "EngineEvent",
+    "UIEvent",
+    "AudioEvent",
     # Input
     "Action",
 ]

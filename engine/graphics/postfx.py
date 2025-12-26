@@ -16,158 +16,10 @@ import moderngl
 import numpy as np
 
 
-# Fullscreen quad vertex shader (shared by all effects)
-FULLSCREEN_VERTEX = """
-#version 330 core
+from pathlib import Path
 
-in vec2 in_pos;
-in vec2 in_uv;
-
-out vec2 v_uv;
-
-void main() {
-    gl_Position = vec4(in_pos, 0.0, 1.0);
-    v_uv = in_uv;
-}
-"""
-
-# Bloom effect shaders
-BLOOM_BRIGHT_PASS = """
-#version 330 core
-
-in vec2 v_uv;
-out vec4 fragColor;
-
-uniform sampler2D u_texture;
-uniform float u_threshold;
-
-void main() {
-    vec4 color = texture(u_texture, v_uv);
-    float brightness = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-
-    if (brightness > u_threshold) {
-        fragColor = color;
-    } else {
-        fragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    }
-}
-"""
-
-BLOOM_BLUR = """
-#version 330 core
-
-in vec2 v_uv;
-out vec4 fragColor;
-
-uniform sampler2D u_texture;
-uniform vec2 u_direction;
-uniform vec2 u_resolution;
-
-const float weights[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
-
-void main() {
-    vec2 texel = 1.0 / u_resolution;
-    vec3 result = texture(u_texture, v_uv).rgb * weights[0];
-
-    for (int i = 1; i < 5; i++) {
-        vec2 offset = u_direction * texel * float(i) * 2.0;
-        result += texture(u_texture, v_uv + offset).rgb * weights[i];
-        result += texture(u_texture, v_uv - offset).rgb * weights[i];
-    }
-
-    fragColor = vec4(result, 1.0);
-}
-"""
-
-BLOOM_COMBINE = """
-#version 330 core
-
-in vec2 v_uv;
-out vec4 fragColor;
-
-uniform sampler2D u_scene;
-uniform sampler2D u_bloom;
-uniform float u_intensity;
-
-void main() {
-    vec3 scene = texture(u_scene, v_uv).rgb;
-    vec3 bloom = texture(u_bloom, v_uv).rgb;
-
-    fragColor = vec4(scene + bloom * u_intensity, 1.0);
-}
-"""
-
-# Vignette shader
-VIGNETTE_FRAGMENT = """
-#version 330 core
-
-in vec2 v_uv;
-out vec4 fragColor;
-
-uniform sampler2D u_texture;
-uniform float u_intensity;
-uniform float u_radius;
-
-void main() {
-    vec4 color = texture(u_texture, v_uv);
-
-    vec2 center = v_uv - 0.5;
-    float dist = length(center);
-    float vignette = 1.0 - smoothstep(u_radius, u_radius + 0.5, dist * u_intensity);
-
-    fragColor = vec4(color.rgb * vignette, color.a);
-}
-"""
-
-# Color grading shader
-COLOR_GRADE_FRAGMENT = """
-#version 330 core
-
-in vec2 v_uv;
-out vec4 fragColor;
-
-uniform sampler2D u_texture;
-uniform float u_brightness;
-uniform float u_contrast;
-uniform float u_saturation;
-uniform vec3 u_tint;
-
-void main() {
-    vec4 color = texture(u_texture, v_uv);
-
-    // Brightness
-    vec3 result = color.rgb + u_brightness;
-
-    // Contrast
-    result = (result - 0.5) * u_contrast + 0.5;
-
-    // Saturation
-    float gray = dot(result, vec3(0.299, 0.587, 0.114));
-    result = mix(vec3(gray), result, u_saturation);
-
-    // Tint
-    result *= u_tint;
-
-    fragColor = vec4(clamp(result, 0.0, 1.0), color.a);
-}
-"""
-
-# Screen transition shaders
-FADE_FRAGMENT = """
-#version 330 core
-
-in vec2 v_uv;
-out vec4 fragColor;
-
-uniform sampler2D u_texture;
-uniform float u_progress;
-uniform vec3 u_color;
-
-void main() {
-    vec4 scene = texture(u_texture, v_uv);
-    fragColor = mix(scene, vec4(u_color, 1.0), u_progress);
-}
-"""
+def load_shader(name: str) -> str:
+    return Path(f"engine/graphics/shaders/{name}").read_text()
 
 
 class PostEffect(ABC):
@@ -205,6 +57,16 @@ class PostProcessingChain:
 
         # Fullscreen quad
         self._quad_vbo = self._create_quad_vbo()
+
+        # Blit shader for simple texture copy
+        self._blit_prog = ctx.program(
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/blit.frag"),
+        )
+        self._blit_vao = ctx.vertex_array(
+            self._blit_prog,
+            [(self._quad_vbo, '2f 2f', 'in_pos', 'in_uv')]
+        )
 
         # Effects chain
         self.effects: list[PostEffect] = []
@@ -352,10 +214,11 @@ class PostProcessingChain:
         source: moderngl.Texture,
         dest: moderngl.Framebuffer,
     ) -> None:
-        """Copy texture to framebuffer."""
-        # Simple pass-through would need a blit shader
-        # For now, just use the context's copy
-        pass  # TODO: Implement blit
+        """Copy texture to framebuffer using blit shader."""
+        dest.use()
+        source.use(location=0)
+        self._blit_prog['u_texture'].value = 0
+        self._blit_vao.render()
 
 
 class BloomEffect(PostEffect):
@@ -391,16 +254,16 @@ class BloomEffect(PostEffect):
 
         # Shaders
         self._bright_prog = ctx.program(
-            vertex_shader=FULLSCREEN_VERTEX,
-            fragment_shader=BLOOM_BRIGHT_PASS,
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/bloom_bright.frag"),
         )
         self._blur_prog = ctx.program(
-            vertex_shader=FULLSCREEN_VERTEX,
-            fragment_shader=BLOOM_BLUR,
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/bloom_blur.frag"),
         )
         self._combine_prog = ctx.program(
-            vertex_shader=FULLSCREEN_VERTEX,
-            fragment_shader=BLOOM_COMBINE,
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/bloom_combine.frag"),
         )
 
         # Quad
@@ -491,8 +354,8 @@ class VignetteEffect(PostEffect):
         self.radius = radius
 
         self._prog = ctx.program(
-            vertex_shader=FULLSCREEN_VERTEX,
-            fragment_shader=VIGNETTE_FRAGMENT,
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/vignette.frag"),
         )
         self._quad = self._create_quad()
 
@@ -531,8 +394,8 @@ class ColorGradeEffect(PostEffect):
         self.tint = tint
 
         self._prog = ctx.program(
-            vertex_shader=FULLSCREEN_VERTEX,
-            fragment_shader=COLOR_GRADE_FRAGMENT,
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/color_grade.frag"),
         )
         self._quad = self._create_quad()
 
@@ -564,8 +427,8 @@ class FadeEffect(PostEffect):
         self.color = (0.0, 0.0, 0.0)
 
         self._prog = ctx.program(
-            vertex_shader=FULLSCREEN_VERTEX,
-            fragment_shader=FADE_FRAGMENT,
+            vertex_shader=load_shader("common/fullscreen.vert"),
+            fragment_shader=load_shader("postfx/fade.frag"),
         )
         self._quad = self._create_quad()
 
